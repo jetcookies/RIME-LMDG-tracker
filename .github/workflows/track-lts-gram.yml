@@ -48,7 +48,7 @@ jobs:
         id: tag
         run: |
           # 使用 GitHub 表达式 substring 取前 7 位
-          TAG="lts-$(date +%Y%m%d)-${NEW_DIGEST:0:7}"
+          TAG="lts-$(date +%Y%m%d)-${NEW_DIGEST:7:14}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "${TAG}"
