@@ -1,0 +1,79 @@
+name: Track LTS gram update
+
+on:
+  schedule:
+    # 每天 02:15 UTC
+    - cron: '15 2 * * *'
+  workflow_dispatch:  # 手动触发
+
+permissions:
+  contents: write     # 推送 commit / 创建 release
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout self
+        uses: actions/checkout@v4
+
+      - name: Install gh
+        uses: cli/gh-action-setup@v1
+        with:
+          version: latest
+
+      - name: Get current digest
+        id: remote
+        run: |
+          # 获取远程 asset 的 digest
+          DIGEST=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS \
+                   --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+
+      - name: Compare with last known
+        id: cmp
+        run: |
+          OLD=$(cat .lts-digest 2>/dev/null || echo "")
+          NEW="${{ steps.remote.outputs.digest }}"
+          if [[ "$OLD" != "$NEW" ]]; then
+            echo "changed=true"  >> $GITHUB_OUTPUT
+            echo "new_digest=$NEW" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download new file
+        if: steps.cmp.outputs.changed == 'true'
+        run: |
+          curl -L -o wanxiang-lts-zh-hans.gram \
+            https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
+
+      - name: Create release tag
+        if: steps.cmp.outputs.changed == 'true'
+        id: tag
+        run: |
+          TAG="lts-$(date +%Y%m%d)-${{ steps.cmp.outputs.new_digest:0:7 }}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          # 轻量 tag
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Create GitHub release
+        if: steps.cmp.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "LTS gram ${{ steps.tag.outputs.tag }}"
+          body: |
+            同步自 [amzxyz/RIME-LMDG/LTS](https://github.com/amzxyz/RIME-LMDG/releases/tag/LTS)
+            digest: `${{ steps.cmp.outputs.new_digest }}`
+          files: wanxiang-lts-zh-hans.gram
+
+      - name: Persist new digest
+        if: steps.cmp.outputs.changed == 'true'
+        run: |
+          echo "${{ steps.cmp.outputs.new_digest }}" > .lts-digest
+          git add .lts-digest
+          git commit -m "chore: update LTS gram digest ${{ steps.cmp.outputs.new_digest:0:7 }}"
+          git push
