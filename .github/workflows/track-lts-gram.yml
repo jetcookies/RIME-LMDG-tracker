@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # 手动触发
 
 permissions:
-  contents: write     # 推送 commit / 创建 release
+  contents: write
 
 jobs:
   check-and-release:
@@ -24,7 +24,6 @@ jobs:
       - name: Get current digest
         id: remote
         run: |
-          # 获取远程 asset 的 digest
           DIGEST=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS \
                    --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
@@ -51,13 +50,15 @@ jobs:
         if: steps.cmp.outputs.changed == 'true'
         id: tag
         run: |
-          TAG="lts-$(date +%Y%m%d)-${{ steps.cmp.outputs.new_digest:0:7 }}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          # 轻量 tag
+          # 使用 GitHub 表达式 substring 取前 7 位
+          TAG="lts-$(date +%Y%m%d)-${NEW_DIGEST:0:7}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "${TAG}"
           git push origin "${TAG}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+        env:
+          NEW_DIGEST: ${{ steps.cmp.outputs.new_digest }}
 
       - name: Create GitHub release
         if: steps.cmp.outputs.changed == 'true'
@@ -75,5 +76,5 @@ jobs:
         run: |
           echo "${{ steps.cmp.outputs.new_digest }}" > .lts-digest
           git add .lts-digest
-          git commit -m "chore: update LTS gram digest ${{ steps.cmp.outputs.new_digest:0:7 }}"
+          git commit -m "chore: update LTS gram digest ${{ steps.cmp.outputs.new_digest }}"
           git push
