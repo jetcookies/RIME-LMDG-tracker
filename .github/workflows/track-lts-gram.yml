@@ -22,6 +22,8 @@ jobs:
           DIGEST=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS \
                    --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compare with last known
         id: cmp
@@ -57,7 +59,7 @@ jobs:
 
       - name: Create GitHub release
         if: steps.cmp.outputs.changed == 'true'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "LTS gram ${{ steps.tag.outputs.tag }}"
