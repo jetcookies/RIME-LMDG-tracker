@@ -19,9 +19,11 @@ jobs:
       - name: Get current digest
         id: remote
         run: |
-          DIGEST=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS \
-                   --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
-          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+          FULL=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS \
+                --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
+          # 去掉前缀，保留纯十六进制
+          HEX=${FULL#sha256:}
+          echo "hex=$HEX" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -29,9 +31,9 @@ jobs:
         id: cmp
         run: |
           OLD=$(cat .lts-digest 2>/dev/null || echo "")
-          NEW="${{ steps.remote.outputs.digest }}"
+          NEW="${{ steps.remote.outputs.hex }}"
           if [[ "$OLD" != "$NEW" ]]; then
-            echo "changed=true"  >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
             echo "new_digest=$NEW" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -47,13 +49,12 @@ jobs:
         if: steps.cmp.outputs.changed == 'true'
         id: tag
         run: |
-          # 使用 GitHub 表达式 substring 取前 7 位
           TAG="lts-$(date +%Y%m%d)-${NEW_DIGEST:0:7}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "${TAG}"
-          git push origin "${TAG}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
         env:
           NEW_DIGEST: ${{ steps.cmp.outputs.new_digest }}
 
@@ -65,7 +66,7 @@ jobs:
           name: "LTS gram ${{ steps.tag.outputs.tag }}"
           body: |
             同步自 [amzxyz/RIME-LMDG/LTS](https://github.com/amzxyz/RIME-LMDG/releases/tag/LTS)
-            digest: `${{ steps.cmp.outputs.new_digest }}`
+            digest: `sha256:${{ steps.cmp.outputs.new_digest }}`
           files: wanxiang-lts-zh-hans.gram
 
       - name: Persist new digest
@@ -73,5 +74,5 @@ jobs:
         run: |
           echo "${{ steps.cmp.outputs.new_digest }}" > .lts-digest
           git add .lts-digest
-          git commit -m "chore: update LTS gram digest ${{ steps.cmp.outputs.new_digest }}"
+          git commit -m "chore: update LTS gram digest ${{ steps.cmp.outputs.new_digest:0:7 }}"
           git push
