@@ -16,11 +16,6 @@ jobs:
       - name: Checkout self
         uses: actions/checkout@v4
 
-      - name: Install gh
-        uses: cli/gh-action-setup@v1
-        with:
-          version: latest
-
       - name: Get current digest
         id: remote
         run: |
