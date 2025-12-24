@@ -19,7 +19,9 @@ jobs:
         id: remote
         run: |
           DIGEST=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
+          DATE=$(date +%Y%m%d -d $(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").updated_at'))
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -45,15 +47,19 @@ jobs:
         run: |
           echo "${{ steps.cmp.outputs.new_digest }}" > .lts-digest
           git add .lts-digest
-          git commit -m "chore: update digest ${{ steps.cmp.outputs.new_digest }}" --author="github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git commit --author="github-actions[bot] <github-actions[bot]@users.noreply.github.com>" -m "chore: update digest ${{ steps.cmp.outputs.new_digest }}"
           git push
 
       - name: Create release tag
         if: steps.cmp.outputs.changed == 'true'
         id: tag
         run: |
-          TAG="LTS-${NEW_DIGEST:7:14}"
-          git tag "${TAG}" --author="github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          DATE="${{ steps.remote.outputs.date }}"
+          DIGEST_SHORT=$(echo "${{ steps.remote.outputs.digest }}" | cut -c 8-14)
+          TAG="LTS-${DATE}+sha256.${DIGEST_SHORT}"
+          git tag "${TAG}"
           git push origin "${TAG}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
         env:
@@ -65,7 +71,4 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "${{ steps.tag.outputs.tag }}"
-          body: |
-            [amzxyz/RIME-LMDG/LTS](https://github.com/amzxyz/RIME-LMDG/releases/tag/LTS)
-            digest: `${{ steps.cmp.outputs.new_digest }}`
           files: wanxiang-lts-zh-hans.gram
