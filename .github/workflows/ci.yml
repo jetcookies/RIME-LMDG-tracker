@@ -46,8 +46,10 @@ jobs:
         if: steps.cmp.outputs.changed == 'true'
         run: |
           echo "${{ steps.cmp.outputs.new_digest }}" > .lts-digest
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .lts-digest
-          git commit --author="github-actions[bot] <github-actions[bot]@users.noreply.github.com>" -m "chore: update digest ${{ steps.cmp.outputs.new_digest }}"
+          git commit -m "chore: update digest ${{ steps.cmp.outputs.new_digest }}"
           git push
 
       - name: Create release tag
