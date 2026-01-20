@@ -19,7 +19,7 @@ jobs:
         id: remote
         run: |
           DIGEST=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
-          DATE=$(date +%Y%m%d -d $(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").updated_at'))
+          DATE=$(date +%Y-%m-%d -d $(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").updated_at'))
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
           echo "date=${DATE}" >> $GITHUB_OUTPUT
         env:
@@ -40,7 +40,7 @@ jobs:
       - name: Download new file
         if: steps.cmp.outputs.changed == 'true'
         run: |
-          curl -L -o wanxiang-lts-zh-hans.gram https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
+          curl -O https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
 
       - name: Persist new digest
         if: steps.cmp.outputs.changed == 'true'
@@ -60,7 +60,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           DATE="${{ steps.remote.outputs.date }}"
           DIGEST_SHORT=$(echo "${{ steps.remote.outputs.digest }}" | cut -c 8-14)
-          TAG="LTS-${DATE}+sha256.${DIGEST_SHORT}"
+          TAG="0-unstable-${DATE}"
           git tag "${TAG}"
           git push origin "${TAG}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
