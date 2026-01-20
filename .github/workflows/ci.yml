@@ -40,7 +40,7 @@ jobs:
       - name: Download new file
         if: steps.cmp.outputs.changed == 'true'
         run: |
-          curl -O https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
+          curl -LO https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
 
       - name: Persist new digest
         if: steps.cmp.outputs.changed == 'true'
