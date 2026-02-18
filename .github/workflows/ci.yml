@@ -15,62 +15,60 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Get remote digest
+      - name: Get remote metadata
         id: remote
-        run: |
-          DIGEST=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").digest')
-          DATE=$(date +%Y-%m-%d -d $(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram").updated_at'))
-          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
-          echo "date=${DATE}" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 获取 digest 和 updated_at
+          METADATA=$(gh api repos/amzxyz/RIME-LMDG/releases/tags/LTS --jq '.assets[] | select(.name=="wanxiang-lts-zh-hans.gram") | "\(.digest) \(.updated_at)"')
+          
+          DIGEST=$(echo $METADATA | cut -d' ' -f1)
+          RAW_DATE=$(echo $METADATA | cut -d' ' -f2)
+          FORMATTED_DATE=$(date +%Y-%m-%d -d "$RAW_DATE")
+          
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+          echo "date=$FORMATTED_DATE" >> $GITHUB_OUTPUT
 
-      - name: Compare with last known
+      - name: Compare and Process
         id: cmp
         run: |
-          OLD=$(cat .lts-digest)
-          NEW="${{ steps.remote.outputs.digest }}"
-          if [[ "$OLD" != "$NEW" ]]; then
-            echo "changed=true"  >> $GITHUB_OUTPUT
-            echo "new_digest=$NEW" >> $GITHUB_OUTPUT
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
+          NEW_DIGEST="${{ steps.remote.outputs.digest }}"
+          # 如果文件不存在，则 OLD_DIGEST 为空
+          OLD_DIGEST=$(cat .lts-digest 2>/dev/null || echo "")
+
+          if [[ "$OLD_DIGEST" != "$NEW_DIGEST" ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "$NEW_DIGEST" > .lts-digest
           fi
 
-      - name: Download new file
-        if: steps.cmp.outputs.changed == 'true'
-        run: |
-          curl -LO https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
-
-      - name: Persist new digest
-        if: steps.cmp.outputs.changed == 'true'
-        run: |
-          echo "${{ steps.cmp.outputs.new_digest }}" > .lts-digest
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .lts-digest
-          git commit -m "chore: update digest ${{ steps.cmp.outputs.new_digest }}"
-          git push
-
-      - name: Create release tag
+      - name: Update and Tag
         if: steps.cmp.outputs.changed == 'true'
         id: tag
         run: |
-          git config user.name  "github-actions[bot]"
+          # 全局配置 Git
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          DATE="${{ steps.remote.outputs.date }}"
-          DIGEST_SHORT=$(echo "${{ steps.remote.outputs.digest }}" | cut -c 8-14)
-          TAG="0-unstable-${DATE}"
-          git tag "${TAG}"
-          git push origin "${TAG}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-        env:
-          NEW_DIGEST: ${{ steps.cmp.outputs.new_digest }}
+          
+          # 1. 下载文件
+          curl -LO https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
+          
+          # 2. 持久化并推送 digest
+          git add .lts-digest
+          git commit -m "chore: update digest ${{ steps.remote.outputs.digest }}"
+          git push
+          
+          # 3. 创建并推送 Tag
+          TAG="0-unstable-${{ steps.remote.outputs.date }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+          
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub release
         if: steps.cmp.outputs.changed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: "${{ steps.tag.outputs.tag }}"
+          name: ${{ steps.tag.outputs.tag }}
           files: wanxiang-lts-zh-hans.gram
