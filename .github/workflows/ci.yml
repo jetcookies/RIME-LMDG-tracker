@@ -2,7 +2,7 @@ name: Track LTS
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 16 * * *'
   workflow_dispatch:
 
 permissions:
@@ -34,10 +34,12 @@ jobs:
         id: cmp
         run: |
           NEW_DIGEST="${{ steps.remote.outputs.digest }}"
-          # 如果文件不存在，则 OLD_DIGEST 为空
           OLD_DIGEST=$(cat .lts-digest 2>/dev/null || echo "")
+          TODAY=$(date +%Y-%m-%d)
 
-          if [[ "$OLD_DIGEST" != "$NEW_DIGEST" ]]; then
+          if [[ "$TODAY" == "${{ steps.remote.outputs.date }}" ]]; then
+            echo "Upstream updated today, skip this run to avoid tag conflicts."
+          elif [[ "$OLD_DIGEST" != "$NEW_DIGEST" ]]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "$NEW_DIGEST" > .lts-digest
           fi
