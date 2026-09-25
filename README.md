@@ -1,5 +1,10 @@
 # RIME-LMDG-tracker
 
+> [!IMPORTANT]
+> 建议使用 [OrdChaos/RIME-LMDG.snapshot](https://github.com/OrdChaos/RIME-LMDG.snapshot)，该实现更完善。
+>
+> 此 Repo 仍保留，供 Nix 打包使用。
+
 ## 背景
 
 由于 [amzxyz/RIME-LMDG#22](https://github.com/amzxyz/RIME-LMDG/issues/22), [Nix](https://nixos.org/) 等包管理器无法顺利完成对 `RIME-LMDG` 的打包，致使 [rime-wanxiang](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ri/rime-wanxiang/package.nix) 等包需要手动调整才能使用。
